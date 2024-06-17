@@ -3,12 +3,13 @@
         {
             "label": "Youtube URL",
             "name": "youtube_url",
-            "type": "string"
+            "type": "int"
         },
         {
-            "label": "PDF file URL",
-            "name": "pdf_file_url",
-            "type": "string"
+            "label": "Document URLs",
+            "name": "document_urls",
+            "type": "list",
+            "items": "str"
         }
     ]
 }
