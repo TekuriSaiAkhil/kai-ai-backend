@@ -4,6 +4,11 @@
             "label": "Youtube URL",
             "name": "youtube_url",
             "type": "string"
+        },
+        {
+            "label": "PDF file URL",
+            "name": "pdf_file_url",
+            "type": "string"
         }
     ]
 }

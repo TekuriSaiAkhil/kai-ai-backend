@@ -11,6 +11,16 @@ class VideoTranscriptError(Exception):
     def __str__(self):
         return f"{self.message}"
 
+class PdfFileError(Exception):
+    """Raised when a pdf file is not found ar given url"""
+    def __init__(self, message, url):
+        self.message = message
+        self.url = url
+        super().__init__(self.message)
+
+    def __str__(self):
+        return f"{self.message} : {self.url}"
+
 class InputValidationError(Exception):
     """Raised when an input validation error occurs."""
     def __init__(self, message: str):

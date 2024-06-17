@@ -1,15 +1,14 @@
-from langchain_community.document_loaders import YoutubeLoader
+from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.prompts import PromptTemplate
 from langchain_google_vertexai import VertexAI
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.chains.summarize import load_summarize_chain
 from langchain_core.pydantic_v1 import BaseModel, Field
-from api.error_utilities import VideoTranscriptError
+from api.error_utilities import VideoTranscriptError, PdfFileError
 from fastapi import HTTPException
 from services.logger import setup_logger
 import os
-
 
 logger = setup_logger(__name__)
 
@@ -63,6 +62,37 @@ def summarize_transcript(youtube_url: str, max_video_length=600, verbose=False) 
     if response and verbose: logger.info("Successfully completed generating summary")
     
     return response['output_text']
+
+def summarize_pdf(pdf_file_url: str, verbose=False) -> str:
+    try:
+        loader = PyPDFLoader(pdf_file_url)
+    except Exception as e:
+        logger.error(f"No pdf file found at {pdf_file_url}")
+        raise PdfFileError(f"No pdf file found at ", pdf_file_url) from e
+    
+    try:
+        docs = loader.load()
+    except Exception as e:
+        logger.error(f"Unable to read pdf content")
+        raise VideoTranscriptError(f"Unable to read pdf content", pdf_file_url) from e
+    
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size = 1000,
+        chunk_overlap = 0
+    )
+    
+    split_docs = splitter.split_documents(docs)
+
+    if verbose:
+        logger.info(f"Splitting documents into {len(split_docs)} chunks")
+    
+    chain = load_summarize_chain(model, chain_type='map_reduce')
+    response = chain.invoke(split_docs)
+    
+    if response and verbose: logger.info("Successfully completed generating summary")
+    
+    return response['output_text']
+    
 
 def generate_flashcards(summary: str, verbose=False) -> list:
     # Receive the summary from the map reduce chain and generate flashcards
