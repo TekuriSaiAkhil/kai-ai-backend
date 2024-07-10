@@ -10,7 +10,7 @@ from langchain_community.document_loaders import UnstructuredExcelLoader
 from langchain_community.document_loaders import UnstructuredXMLLoader
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.utils.allowed_file_extensions import FileType
-from app.api.error_utilities import FileHandlerError, ImageHandlerError
+from app.api.error_utilities import FileHandlerError, ImageHandlerError, DocumentLoadError
 from langchain.prompts import PromptTemplate
 from langchain_google_genai import GoogleGenerativeAI
 from app.api.error_utilities import VideoTranscriptError
@@ -29,8 +29,8 @@ STRUCTURED_TABULAR_FILE_EXTENSIONS = {"csv", "xls", "xlsx", "gsheet", "xml"}
 logger = setup_logger(__name__)
 
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size = 1000,
-    chunk_overlap = 0
+    chunk_size=1000,
+    chunk_overlap=0
 )
 
 def read_text_file(file_path):
@@ -67,7 +67,7 @@ def get_summary(file_url: str, file_type: str, verbose=True):
         
     except Exception as e:
         logger.error(f"Unsupported file type: {file_type}")
-        raise FileHandlerError(f"Unsupported file type", file_url) from e
+        raise DocumentLoadError(f"Unsupported file type", file_url) from e
     
 class FileHandler:
     def __init__(self, file_loader, file_extension):
@@ -80,7 +80,7 @@ class FileHandler:
 
         # Download the file from the URL and save it to a temporary file
         response = requests.get(url)
-        response.raise_for_status()  # Ensure the request was successful
+        response.raise_for_status()
 
         with tempfile.NamedTemporaryFile(delete=False, prefix=unique_filename) as temp_file:
             temp_file.write(response.content)
@@ -105,167 +105,210 @@ class FileHandler:
         return documents
     
 def load_pdf_documents(pdf_url: str, verbose=False):
-    pdf_loader = FileHandler(PyPDFLoader, "pdf")
-    docs = pdf_loader.load(pdf_url)
+    try:
+        pdf_loader = FileHandler(PyPDFLoader, "pdf")
+        docs = pdf_loader.load(pdf_url)
 
-    if docs:
-        split_docs = splitter.split_documents(docs)
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found PDF file")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        if verbose:
-            logger.info(f"Found PDF file")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
-
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-
-        return full_content
-        
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
+    
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading PDF", pdf_url) from e
 
 def load_csv_documents(csv_url: str, verbose=False):
-    csv_loader = FileHandler(CSVLoader, "csv")
-    docs = csv_loader.load(csv_url)
+    try:
+        csv_loader = FileHandler(CSVLoader, "csv")
+        docs = csv_loader.load(csv_url)
 
-    if docs:
-        if verbose:
-            logger.info(f"Found CSV file")
-            logger.info(f"Splitting documents into {len(docs)} chunks")
+        if docs:
+            if verbose:
+                logger.info(f"Found CSV file")
+                logger.info(f"Splitting documents into {len(docs)} chunks")
 
-        full_content = [doc.page_content for doc in docs]
-        full_content = " ".join(full_content)
+            full_content = " ".join([doc.page_content for doc in docs])
+            return full_content
 
-        return full_content
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading CSV", csv_url) from e
 
 def load_txt_documents(notes_url: str, verbose=False):
-    notes_loader = FileHandler(TextLoader, "txt")
-    docs = notes_loader.load(notes_url)
+    try:
+        notes_loader = FileHandler(TextLoader, "txt")
+        docs = notes_loader.load(notes_url)
 
-    if docs: 
-        
-        split_docs = splitter.split_documents(docs)
-        
-        if verbose:
-            logger.info(f"Found TXT file")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found TXT file")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
+
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading TXT", notes_url) from e
 
 def load_md_documents(notes_url: str, verbose=False):
-    notes_loader = FileHandler(TextLoader, "md")
-    docs = notes_loader.load(notes_url)
+    try:
+        notes_loader = FileHandler(TextLoader, "md")
+        docs = notes_loader.load(notes_url)
     
-    if docs:
-        
-        split_docs = splitter.split_documents(docs)
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found MD file")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        if verbose:
-            logger.info(f"Found MD file")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading MD", notes_url) from e
 
 def load_url_documents(url: str, verbose=False):
-    url_loader = UnstructuredURLLoader(urls=[url])
-    docs = url_loader.load()
+    try:
+        url_loader = UnstructuredURLLoader(urls=[url])
+        docs = url_loader.load()
 
-    if docs:
-        split_docs = splitter.split_documents(docs)
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found URL")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        if verbose:
-            logger.info(f"Found URL")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+    except Exception as e:
+        logger.error(f"Error loading URL document: {str(e)}")
+        raise DocumentLoadError("Error loading URL document", url) from e
 
 def load_pptx_documents(pptx_url: str, verbose=False):
-    pptx_handler = FileHandler(UnstructuredPowerPointLoader, 'pptx')
+    try:
+        pptx_handler = FileHandler(UnstructuredPowerPointLoader, 'pptx')
+        docs = pptx_handler.load(pptx_url)
 
-    docs = pptx_handler.load(pptx_url)
-    if docs: 
-
-        split_docs = splitter.split_documents(docs)
-
-        if verbose:
-            logger.info(f"Found PPTX file")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found PPTX file")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
         
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
 
-        return full_content
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading PPTX", pptx_url) from e
         
 def load_docx_documents(docx_url: str, verbose=False):
-    docx_handler = FileHandler(Docx2txtLoader, 'docx')
-    docs = docx_handler.load(docx_url)
-    if docs: 
+    try:
+        docx_handler = FileHandler(Docx2txtLoader, 'docx')
+        docs = docx_handler.load(docx_url)
 
-        split_docs = splitter.split_documents(docs)
-        
-        if verbose:
-            logger.info(f"Found DOCX file")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found DOCX file")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
+
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading DOCX", docx_url) from e
 
 def load_xls_documents(xls_url: str, verbose=False):
-    xls_handler = FileHandler(UnstructuredExcelLoader, 'xls')
-    docs = xls_handler.load(xls_url)
-    if docs: 
+    try:
+        xls_handler = FileHandler(UnstructuredExcelLoader, 'xls')
+        docs = xls_handler.load(xls_url)
 
-        split_docs = splitter.split_documents(docs)
-        
-        if verbose:
-            logger.info(f"Found XLS file")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found XLS file")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
+
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading XLS", xls_url) from e
 
 def load_xlsx_documents(xlsx_url: str, verbose=False):
-    xlsx_handler = FileHandler(UnstructuredExcelLoader, 'xlsx')
-    docs = xlsx_handler.load(xlsx_url)
-    if docs: 
+    try:
+        xlsx_handler = FileHandler(UnstructuredExcelLoader, 'xlsx')
+        docs = xlsx_handler.load(xlsx_url)
 
-        split_docs = splitter.split_documents(docs)
-        
-        if verbose:
-            logger.info(f"Found XLSX file")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found XLSX file")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
+
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading XLSX", xlsx_url) from e
 
 def load_xml_documents(xml_url: str, verbose=False):
-    xml_handler = FileHandler(UnstructuredXMLLoader, 'xml')
-    docs = xml_handler.load(xml_url)
-    if docs: 
+    try:
+        xml_handler = FileHandler(UnstructuredXMLLoader, 'xml')
+        docs = xml_handler.load(xml_url)
 
-        split_docs = splitter.split_documents(docs)
-        
-        if verbose:
-            logger.info(f"Found XML file")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found XML file")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
 
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading XML", xml_url) from e
 
 class FileHandlerForGoogleDrive:
     def __init__(self, file_loader, file_extension='docx'):
@@ -299,70 +342,87 @@ class FileHandlerForGoogleDrive:
         return documents
     
 def load_gdocs_documents(drive_folder_url: str, verbose=False):
-
-    gdocs_loader = FileHandlerForGoogleDrive(Docx2txtLoader)
-
-    docs = gdocs_loader.load(drive_folder_url)
+    try:
+        gdocs_loader = FileHandlerForGoogleDrive(Docx2txtLoader)
+        docs = gdocs_loader.load(drive_folder_url)
     
-    if docs: 
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found Google Docs files")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        split_docs = splitter.split_documents(docs)
-        
-        if verbose:
-            logger.info(f"Found Google Docs files")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        return full_content
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading Google Docs", drive_folder_url) from e
     
 def load_gsheets_documents(drive_folder_url: str, verbose=False):
-    gsheets_loader = FileHandlerForGoogleDrive(UnstructuredExcelLoader, 'xlsx')
-    docs = gsheets_loader.load(drive_folder_url)
-    if docs: 
+    try:
+        gsheets_loader = FileHandlerForGoogleDrive(UnstructuredExcelLoader, 'xlsx')
+        docs = gsheets_loader.load(drive_folder_url)
 
-        split_docs = splitter.split_documents(docs)
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found Google Sheets files")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        if verbose:
-            logger.info(f"Found Google Sheets files")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading Google Sheets", drive_folder_url) from e
 
 def load_gslides_documents(drive_folder_url: str, verbose=False):
-    gslides_loader = FileHandlerForGoogleDrive(UnstructuredPowerPointLoader, 'pptx')
-    docs = gslides_loader.load(drive_folder_url)
-    if docs: 
+    try:
+        gslides_loader = FileHandlerForGoogleDrive(UnstructuredPowerPointLoader, 'pptx')
+        docs = gslides_loader.load(drive_folder_url)
 
-        split_docs = splitter.split_documents(docs)
+        if docs:
+            split_docs = splitter.split_documents(docs)
+            if verbose:
+                logger.info(f"Found Google Slides files")
+                logger.info(f"Splitting documents into {len(split_docs)} chunks")
 
-        if verbose:
-            logger.info(f"Found Google Slides files")
-            logger.info(f"Splitting documents into {len(split_docs)} chunks")
+            full_content = " ".join([doc.page_content for doc in split_docs])
+            return full_content
 
-        full_content = [doc.page_content for doc in split_docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading Google Slides", drive_folder_url) from e
     
 def load_gpdf_documents(drive_folder_url: str, verbose=False):
+    try:
+        gpdf_loader = FileHandlerForGoogleDrive(PyPDFLoader,'pdf')
+        docs = gpdf_loader.load(drive_folder_url)
 
-    gpdf_loader = FileHandlerForGoogleDrive(PyPDFLoader,'pdf')
+        if docs:
+            if verbose:
+                logger.info(f"Found Google PDF files")
+                logger.info(f"Splitting documents into {len(docs)} chunks")
 
-    docs = gpdf_loader.load(drive_folder_url)
-    if docs: 
+            full_content = " ".join([doc.page_content for doc in docs])
+            return full_content
 
-        if verbose:
-            logger.info(f"Found Google PDF files")
-            logger.info(f"Splitting documents into {len(docs)} chunks")
-
-        full_content = [doc.page_content for doc in docs]
-        full_content = " ".join(full_content)
-        
-        return full_content
+    except FileHandlerError as e:
+        logger.error(f"File handler error: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise DocumentLoadError("Unexpected error while loading Google PDF", drive_folder_url) from e
     
 def summarize_transcript_youtube_url(youtube_url: str, max_video_length=600, verbose=False) -> str:
     try:
@@ -381,8 +441,7 @@ def summarize_transcript_youtube_url(youtube_url: str, max_video_length=600, ver
     
     split_docs = splitter.split_documents(docs)
     
-    full_transcript = [doc.page_content for doc in split_docs]
-    full_transcript = " ".join(full_transcript)
+    full_transcript = " ".join([doc.page_content for doc in split_docs])
 
     if length > max_video_length:
         raise VideoTranscriptError(f"Video is {length} seconds long, please provide a video less than {max_video_length} seconds long", youtube_url)
@@ -422,7 +481,7 @@ llm_for_img = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
 
 def generate_summary_from_img(img_url):
     message = HumanMessage(
-    content=[
+        content=[
             {
                 "type": "text",
                 "text": "Give me a summary of what you see in the image. It must be a detailed paragraph.",

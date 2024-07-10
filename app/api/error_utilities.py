@@ -57,3 +57,14 @@ class ImageHandlerError(Exception):
 
     def __str__(self):
         return f"{self.message}"
+
+class SyllabusGeneratorError(Exception):
+    """Base class for errors related to the syllabus generator."""
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
+    
+class DocumentLoadError(SyllabusGeneratorError):
+    """Raised when there is an error loading a document."""
+    def __init__(self, message: str = "Error loading document"):
+        super().__init__(message)
