@@ -3,6 +3,7 @@ from app.features.syllabus_generator.tools import generate_syllabus
 from app.features.syllabus_generator.document_loaders import generate_summary_from_img, summarize_transcript_youtube_url, get_summary
 from app.api.error_utilities import SyllabusGeneratorError
 
+
 logger = setup_logger()
 
 def executor(grade_level: str, 
