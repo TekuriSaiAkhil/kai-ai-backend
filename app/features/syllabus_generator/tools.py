@@ -6,6 +6,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_google_genai import GoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from app.features.syllabus_generator.document_loaders import read_text_file
+from fastapi import HTTPException
 
 from fastapi import HTTPException
 
@@ -333,6 +334,17 @@ class SyllabusSchema(BaseModel):
         }
     }
 
+def generate_syllabus(request_args, verbose):
+    try:
+        pipeline = SyllabusGeneratorPipeline(verbose=verbose)
+        chain = pipeline.compile()
+        output = chain.invoke(request_args.to_dict())
+
+    except Exception as e:
+        logger.error(f"Failed to generate syllabus: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate syllabus from LLM")
+
+    return output
 
 def generate_syllabus(request_args, verbose=True):
     try:
