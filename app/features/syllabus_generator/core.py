@@ -1,4 +1,5 @@
 from app.services.logger import setup_logger
+from app.features.syllabus_generator.tools import SyllabusRequestArgs
 from app.features.syllabus_generator.tools import generate_syllabus
 from app.features.syllabus_generator.document_loaders import generate_summary_from_img, summarize_transcript_youtube_url, get_summary
 from app.api.error_utilities import SyllabusGeneratorError
@@ -21,6 +22,37 @@ def executor(grade_level: str,
     
     if verbose:
         logger.info(f"File URL loaded: {file_url}")
+    
+    try:
+        
+        if file_type == 'img':
+            summary = generate_summary_from_img(file_url)
+        elif file_type == 'youtube_url':
+            summary = summarize_transcript_youtube_url(file_url, verbose=verbose)
+        else:
+            summary = get_summary(file_url, file_type, verbose=verbose)
+    
+        request_args = SyllabusRequestArgs(
+                                grade_level,
+                                course,
+                                instructor_name,
+                                instructor_title,
+                                unit_time,
+                                unit_time_value,
+                                start_date,
+                                assessment_methods,
+                                grading_scale,
+                                summary)
+        
+        syllabus = generate_syllabus(request_args, verbose= verbose)
+
+    except Exception as e:
+        error_message = f"Error in executor: {e}"
+        logger.error(error_message)
+        raise ValueError(error_message)
+
+    return syllabus
+
     
     try:
         if file_type == 'img':
