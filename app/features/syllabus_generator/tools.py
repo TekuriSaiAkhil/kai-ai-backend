@@ -8,8 +8,6 @@ from langchain_core.prompts import PromptTemplate
 from app.features.syllabus_generator.document_loaders import read_text_file
 from fastapi import HTTPException
 
-from fastapi import HTTPException
-
 
 logger = setup_logger(__name__)
 
