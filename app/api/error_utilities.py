@@ -64,7 +64,3 @@ class SyllabusGeneratorError(Exception):
         self.message = message
         super().__init__(self.message)
     
-class DocumentLoadError(SyllabusGeneratorError):
-    """Raised when there is an error loading a document."""
-    def __init__(self, message: str = "Error loading document"):
-        super().__init__(message)
