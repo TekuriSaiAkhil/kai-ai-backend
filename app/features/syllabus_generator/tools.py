@@ -345,15 +345,3 @@ def generate_syllabus(request_args, verbose):
         raise HTTPException(status_code=500, detail=f"Failed to generate syllabus from LLM")
 
     return output
-
-def generate_syllabus(request_args, verbose=True):
-    try:
-        pipeline = SyllabusGeneratorPipeline(verbose=verbose)
-        chain = pipeline.compile()
-        output = chain.invoke(request_args.to_dict())
-
-    except Exception as e:
-        logger.error(f"Failed to generate syllabus: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate syllabus from LLM")
-
-    return output
