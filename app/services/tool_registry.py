@@ -20,3 +20,7 @@ class ToolFile(BaseModel):
     filePath: Optional[str] = None
     url: str
     filename: Optional[str] = None
+
+class WorksheetQuestionModel(BaseModel):
+    question_type: str
+    number: int
