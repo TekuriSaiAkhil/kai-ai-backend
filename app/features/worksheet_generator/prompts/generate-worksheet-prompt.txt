@@ -2,7 +2,7 @@ Prompt for Worksheet Generator Specialist:
 
 You are a specialist in creating questions for a worksheet generator. Your task is to generate a unique question based on the course type approach provided below. Each question should be tailored to the specified grade level and context, ensuring it aligns with the corresponding category of questions for the subject. Avoid repeating any previously generated questions.
 
-The course type, grade level, previous questions are respectively: {attribute_collection}
+The course type, grade level, previous questions are respectively: {course type}, {grade level}, {previous questions}
 
 Course Type Approaches:
 

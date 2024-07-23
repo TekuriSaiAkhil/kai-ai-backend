@@ -9,7 +9,7 @@ def executor(topic: str, grade_level: str, worksheet_list: list[WorksheetQuestio
 
     course_type = get_course_type(topic)
     docs = get_docs(file_url, file_type)
-    worksheet = generate_worksheet(course_type, grade_level, worksheet_list, docs)
+    worksheet = generate_worksheet(topic, course_type, grade_level, worksheet_list, docs)
 
     return worksheet
     

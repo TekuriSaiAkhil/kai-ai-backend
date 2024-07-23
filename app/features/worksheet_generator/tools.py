@@ -57,7 +57,7 @@ def get_course_type(topic: str):
     return output
 
 
-def generate_worksheet(course_type: str, grade_level: str, worksheet_list: list[WorksheetQuestionModel], docs: str, verbose=True):
+def generate_worksheet(topic: str, course_type: str, grade_level: str, worksheet_list: list[WorksheetQuestionModel], docs: str, verbose=True):
     previous_questions = []
     results = {}
     generated_questions = []
@@ -76,7 +76,7 @@ def generate_worksheet(course_type: str, grade_level: str, worksheet_list: list[
         parser = JsonOutputParser(pydantic_object=schema)
         prompt = PromptTemplate(
             template=template,
-            input_variables=["attribute_collection", "context"],
+            input_variables=["context", "course type", "grade level", "previous questions"],
             partial_variables = {"format_instructions": parser.get_format_instructions()}
         )
         
@@ -84,28 +84,28 @@ def generate_worksheet(course_type: str, grade_level: str, worksheet_list: list[
         vectorstore = Chroma.from_documents(docs, embedding_model)
 
         retriver = vectorstore.as_retriever()
-        print(retriver.invoke(f"""
+        context = retriver.invoke(f"""
+            0. Topic: {topic}
             1. Course type: {course_type}
-            2. Grade level: {grade_level}
-            3. Previous questions: {previous_questions}
-            """))
-        run = RunnableParallel(
-            {
-                "context": retriver,
-                "attribute_collection": RunnablePassthrough()
+            """)
+        
+        print(context)
+        
+        params = {
+                "context": context,
+                "course type": course_type,
+                "grade level": grade_level,
+                "previous questions": previous_questions,
             }
-        )
 
         model = GoogleGenerativeAI(model="gemini-1.5-pro")
+        
+        chain = prompt | model | parser
 
-        chain = run | prompt | model | parser
         for _ in range(worksheet["number"]):
-            attribute_collection = f"""
-            1. Course type: {course_type}
-            2. Grade level: {grade_level}
-            3. Previous questions: {previous_questions}
-            """
-            result = chain.invoke(attribute_collection)
+    
+            result = chain.invoke(params)
+
             if "model_config" in result:
                     del result["model_config"]
 
