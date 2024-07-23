@@ -70,6 +70,13 @@ def generate_worksheet(topic: str, course_type: str, grade_level: str, worksheet
             'math_exercises': MathExerciseQuestion
         }
     
+    embedding_model = GoogleGenerativeAIEmbeddings(model='models/embedding-001')
+    vectorstore = Chroma.from_documents(docs, embedding_model)
+    retriver = vectorstore.as_retriever()
+    context = retriver.invoke(f"""
+            0. Topic: {topic}
+            1. Course type: {course_type}
+            """)
     for worksheet in worksheet_list:
         schema = schema_mapping.get(worksheet["question_type"])
         template = read_text_file("prompts/generate-worksheet-prompt.txt")
@@ -79,17 +86,6 @@ def generate_worksheet(topic: str, course_type: str, grade_level: str, worksheet
             input_variables=["context", "course type", "grade level", "previous questions"],
             partial_variables = {"format_instructions": parser.get_format_instructions()}
         )
-        
-        embedding_model = GoogleGenerativeAIEmbeddings(model='models/embedding-001')
-        vectorstore = Chroma.from_documents(docs, embedding_model)
-
-        retriver = vectorstore.as_retriever()
-        context = retriver.invoke(f"""
-            0. Topic: {topic}
-            1. Course type: {course_type}
-            """)
-        
-        print(context)
         
         params = {
                 "context": context,
@@ -111,6 +107,7 @@ def generate_worksheet(topic: str, course_type: str, grade_level: str, worksheet
 
             previous_questions.append(result["question"])
             generated_questions.append(result)
+            
         results[worksheet["question_type"]] = generated_questions
         generated_questions = []
         previous_questions = []
